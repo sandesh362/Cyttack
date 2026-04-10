@@ -1,199 +1,206 @@
-// components/Charts.jsx
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
-  Tooltip, ResponsiveContainer, RadialBarChart, RadialBar,
-  CartesianGrid, Cell,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
+import { getSeverityAppearance } from '../utils/ui';
 
-const CHART_BG = '#0a0a0f';
-const GRID_COLOR = '#1e293b';
-const TEXT_COLOR = '#475569';
+const GRID = '#d8e2ea';
+const AXIS = '#6f8aa4';
+const TONES = ['#7db2cf', '#84c2bb', '#d7c2a6', '#cf7f6d', '#d8b06a'];
 
-function CustomTooltip({ active, payload, label, formatter }) {
+function ChartCard({ title, subtitle, children, legend }) {
+  return (
+    <section className="dashboard-panel chart-shell">
+      <div className="panel-header">
+        <div>
+          <span className="section-chip">Visualization</span>
+          <h3 className="panel-title">{title}</h3>
+          <p className="panel-copy">{subtitle}</p>
+        </div>
+        {legend ? <div className="chart-legend">{legend}</div> : null}
+      </div>
+      <div className="panel-body" style={{ height: 320 }}>{children}</div>
+    </section>
+  );
+}
+
+function TooltipCard({ active, payload, label, valueSuffix = '' }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      background: '#0d1117', border: '1px solid #334155',
-      borderRadius: 4, padding: '6px 10px',
-      fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
-    }}>
-      <div style={{ color: '#64748b', marginBottom: 2 }}>{label}</div>
-      {payload.map((p, i) => (
-        <div key={i} style={{ color: p.color || '#38bdf8' }}>
-          {formatter ? formatter(p.value) : p.value}
+    <div style={styles.tooltip}>
+      {label ? <strong style={styles.tooltipLabel}>{label}</strong> : null}
+      {payload.map((entry) => (
+        <div key={entry.dataKey || entry.name} style={{ ...styles.tooltipRow, color: entry.color || 'var(--text)' }}>
+          <span>{entry.name || entry.dataKey}</span>
+          <strong>{entry.value}{valueSuffix}</strong>
         </div>
       ))}
     </div>
   );
 }
 
-export function TimelineChart({ data = [] }) {
-  const chartData = data.map(d => ({ ...d, time: d.label }));
+export function ThreatTrendChart({ data = [] }) {
+  const legend = [
+    { label: 'All alerts', color: '#7db2cf' },
+    { label: 'Suspicious', color: '#cf7f6d' },
+  ];
 
   return (
-    <div style={styles.chartBox}>
-      <div style={styles.chartHeader}>
-        <span style={styles.chartTitle}>ATTACKS OVER TIME</span>
-        <span style={styles.chartSub}>30min window</span>
-      </div>
-      <ResponsiveContainer width="100%" height={140}>
-        <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+    <ChartCard
+      title="Threat trend over time"
+      subtitle="Minute-by-minute volume from the current live telemetry window."
+      legend={legend.map((item) => (
+        <span key={item.label} className="legend-key">
+          <span className="legend-swatch" style={{ background: item.color }} />
+          {item.label}
+        </span>
+      ))}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 12, right: 12, left: -12, bottom: 4 }}>
           <defs>
-            <linearGradient id="attackGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#ff2020" stopOpacity={0.4} />
-              <stop offset="95%" stopColor="#ff2020" stopOpacity={0} />
+            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#7db2cf" stopOpacity={0.45} />
+              <stop offset="100%" stopColor="#7db2cf" stopOpacity={0.06} />
+            </linearGradient>
+            <linearGradient id="suspiciousFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#cf7f6d" stopOpacity={0.3} />
+              <stop offset="100%" stopColor="#cf7f6d" stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-          <XAxis
-            dataKey="time" tick={{ fill: TEXT_COLOR, fontSize: 9 }}
-            axisLine={false} tickLine={false}
-            interval="preserveStartEnd"
-          />
-          <YAxis tick={{ fill: TEXT_COLOR, fontSize: 9 }} axisLine={false} tickLine={false} />
-          <Tooltip content={<CustomTooltip formatter={v => `${v} events`} />} />
-          <Area
-            type="monotone" dataKey="count"
-            stroke="#ff2020" strokeWidth={2}
-            fill="url(#attackGrad)"
-          />
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="label" tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} width={32} />
+          <Tooltip content={<TooltipCard valueSuffix=" alerts" />} />
+          <Area type="monotone" dataKey="attacks" name="All alerts" stroke="#7db2cf" fill="url(#trendFill)" strokeWidth={3} />
+          <Area type="monotone" dataKey="suspicious" name="Suspicious" stroke="#cf7f6d" fill="url(#suspiciousFill)" strokeWidth={2} />
         </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   );
 }
 
-export function CommandFreqChart({ data = [] }) {
-  const chartData = data.slice(0, 8).map(d => ({
-    name: d.name.length > 20 ? d.name.substring(0, 20) + '…' : d.name,
-    count: d.count,
+export function AlertDistributionChart({ data = [] }) {
+  return (
+    <ChartCard
+      title="Alert distribution"
+      subtitle="Most frequent alert categories in the current event set."
+      legend={data.map((item, index) => (
+        <span key={item.name} className="legend-key">
+          <span className="legend-swatch" style={{ background: TONES[index % TONES.length] }} />
+          {item.name}
+        </span>
+      ))}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={72}
+            outerRadius={108}
+            paddingAngle={3}
+          >
+            {data.map((entry, index) => (
+              <Cell key={entry.name} fill={TONES[index % TONES.length]} />
+            ))}
+          </Pie>
+          <Tooltip content={<TooltipCard valueSuffix=" alerts" />} />
+        </PieChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+
+export function SeverityChart({ counts = {} }) {
+  const data = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'].map((label) => ({
+    name: label,
+    value: counts[label] || 0,
+    color: getSeverityAppearance(label).color,
   }));
 
-  const COLORS = ['#ff6b35', '#ff9a5c', '#ffb380', '#ffc9a0', '#ffd9be', '#ffe6d5', '#fff0e8', '#fff8f3'];
-
   return (
-    <div style={styles.chartBox}>
-      <div style={styles.chartHeader}>
-        <span style={styles.chartTitle}>COMMAND FREQUENCY</span>
-        <span style={styles.chartSub}>top 8</span>
-      </div>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 8, left: 4, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} horizontal={false} />
-          <XAxis type="number" tick={{ fill: TEXT_COLOR, fontSize: 9 }} axisLine={false} tickLine={false} />
-          <YAxis
-            type="category" dataKey="name"
-            tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: '"JetBrains Mono", monospace' }}
-            axisLine={false} tickLine={false} width={130}
-          />
-          <Tooltip content={<CustomTooltip formatter={v => `${v}×`} />} />
-          <Bar dataKey="count" radius={[0, 3, 3, 0]}>
-            {chartData.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+    <ChartCard
+      title="Severity levels"
+      subtitle="Current severity mix across the aggregated event stream."
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 12, right: 12, left: -16, bottom: 6 }}>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="name" tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
+          <Tooltip content={<TooltipCard valueSuffix=" alerts" />} />
+          <Bar dataKey="value" radius={[10, 10, 0, 0]}>
+            {data.map((entry) => (
+              <Cell key={entry.name} fill={entry.color} />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </ChartCard>
   );
 }
 
-export function GeoDistChart({ data = [] }) {
-  const chartData = data.slice(0, 6).map((d, i) => ({
-    name: d.name,
-    count: d.count,
-    fill: ['#38bdf8','#818cf8','#a78bfa','#c084fc','#e879f9','#f472b6'][i],
+export function CommandFrequencyChart({ data = [] }) {
+  const chartData = data.slice(0, 6).map((item) => ({
+    name: item.name.length > 26 ? `${item.name.slice(0, 26)}...` : item.name,
+    count: item.count,
   }));
 
   return (
-    <div style={styles.chartBox}>
-      <div style={styles.chartHeader}>
-        <span style={styles.chartTitle}>GEO DISTRIBUTION</span>
-        <span style={styles.chartSub}>by country</span>
-      </div>
-      <div style={styles.geoList}>
-        {chartData.map((d, i) => (
-          <div key={i} style={styles.geoRow}>
-            <div style={styles.geoBarTrack}>
-              <div style={{
-                height: '100%',
-                width: `${Math.round((d.count / (chartData[0]?.count || 1)) * 100)}%`,
-                background: d.fill,
-                borderRadius: 2,
-                transition: 'width 0.6s ease',
-              }} />
-            </div>
-            <span style={{ ...styles.geoName, color: d.fill }}>{d.name}</span>
-            <span style={styles.geoCount}>{d.count}</span>
-          </div>
-        ))}
-        {chartData.length === 0 && <div style={{ color: '#1e293b', fontSize: 10 }}>awaiting geo data...</div>}
-      </div>
-    </div>
-  );
-}
-
-export function SeverityRadial({ counts = {} }) {
-  const data = [
-    { name: 'CRITICAL', value: counts.CRITICAL || 0, fill: '#ff2020' },
-    { name: 'HIGH',     value: counts.HIGH || 0,     fill: '#ff6b35' },
-    { name: 'MEDIUM',   value: counts.MEDIUM || 0,   fill: '#ffc107' },
-    { name: 'LOW',      value: counts.LOW || 0,       fill: '#4caf50' },
-  ].filter(d => d.value > 0);
-
-  const total = data.reduce((s, d) => s + d.value, 0);
-
-  return (
-    <div style={styles.chartBox}>
-      <div style={styles.chartHeader}>
-        <span style={styles.chartTitle}>THREAT LEVEL</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <ResponsiveContainer width={100} height={100}>
-          <RadialBarChart
-            cx="50%" cy="50%"
-            innerRadius={20} outerRadius={45}
-            data={data.length > 0 ? data : [{ name: 'none', value: 1, fill: '#1e293b' }]}
-            startAngle={180} endAngle={-180}
-          >
-            <RadialBar dataKey="value" cornerRadius={3} />
-          </RadialBarChart>
-        </ResponsiveContainer>
-        <div style={{ flex: 1 }}>
-          {data.map(d => (
-            <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: d.fill }} />
-              <span style={{ color: '#475569', fontSize: 9, flex: 1, fontFamily: '"JetBrains Mono", monospace' }}>{d.name}</span>
-              <span style={{ color: d.fill, fontSize: 9, fontFamily: '"JetBrains Mono", monospace' }}>
-                {total > 0 ? Math.round((d.value / total) * 100) : 0}%
-              </span>
-            </div>
-          ))}
-          {data.length === 0 && <div style={{ color: '#1e293b', fontSize: 10, fontFamily: '"JetBrains Mono", monospace' }}>no data</div>}
-        </div>
-      </div>
-    </div>
+    <ChartCard
+      title="Command frequency"
+      subtitle="Most common commands executed in active attacker sessions."
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 12, left: 22, bottom: 4 }}>
+          <CartesianGrid stroke={GRID} horizontal={false} />
+          <XAxis type="number" tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis type="category" dataKey="name" tick={{ fill: AXIS, fontSize: 11 }} axisLine={false} tickLine={false} width={150} />
+          <Tooltip content={<TooltipCard valueSuffix=" uses" />} />
+          <Bar dataKey="count" radius={[0, 12, 12, 0]}>
+            {chartData.map((entry, index) => (
+              <Cell key={entry.name} fill={TONES[index % TONES.length]} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 }
 
 const styles = {
-  chartBox: {
-    background: '#0a0a0f',
-    border: '1px solid #1e293b',
-    borderRadius: 8,
+  tooltip: {
+    minWidth: 170,
     padding: '12px 14px',
-    fontFamily: '"JetBrains Mono", monospace',
+    borderRadius: 18,
+    background: 'rgba(255, 255, 255, 0.94)',
+    border: '1px solid rgba(145, 169, 190, 0.22)',
+    boxShadow: '0 14px 32px rgba(117, 146, 168, 0.14)',
   },
-  chartHeader: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 10,
+  tooltipLabel: {
+    display: 'block',
+    marginBottom: 8,
+    color: 'var(--text)',
+    fontSize: '0.88rem',
   },
-  chartTitle: { color: '#94a3b8', fontSize: 10, fontWeight: 700, letterSpacing: 2 },
-  chartSub: { color: '#334155', fontSize: 9 },
-  geoList: { display: 'flex', flexDirection: 'column', gap: 6 },
-  geoRow: { display: 'flex', alignItems: 'center', gap: 8 },
-  geoBarTrack: { flex: 1, height: 12, background: '#0d1117', borderRadius: 2, overflow: 'hidden' },
-  geoName: { fontSize: 9, width: 80, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  geoCount: { color: '#475569', fontSize: 9, width: 28, textAlign: 'right' },
+  tooltipRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    fontSize: '0.84rem',
+  },
 };

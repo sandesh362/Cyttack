@@ -1,246 +1,151 @@
-// components/SessionViewer.jsx
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { formatRelative, flagEmoji } from '../utils/helpers';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { flagEmoji, formatRelative, getEventDetail, getSeverityAppearance } from '../utils/ui';
 
 export default function SessionViewer({ sessions = [], events = [] }) {
   const [selected, setSelected] = useState(null);
   const [replayIndex, setReplayIndex] = useState(0);
   const [isReplaying, setIsReplaying] = useState(false);
-  const termRef = useRef(null);
   const replayTimer = useRef(null);
+  const terminalRef = useRef(null);
 
-  // Build session command history from events
-  const sessionCommands = selected
-    ? events.filter(e => e.session === selected && e.type === 'command')
-    : [];
+  const selectedSession = sessions.find((session) => session.session === selected) || sessions[0] || null;
+  const sessionId = selected || selectedSession?.session || null;
 
-  const selectedSession = sessions.find(s => s.session === selected);
+  const sessionCommands = useMemo(() => {
+    return sessionId ? events.filter((event) => event.session === sessionId && event.type === 'command') : [];
+  }, [events, sessionId]);
 
-  function startReplay() {
-    setReplayIndex(0);
-    setIsReplaying(true);
-  }
+  const displayedCommands = isReplaying ? sessionCommands.slice(0, replayIndex) : sessionCommands;
 
   useEffect(() => {
-    if (!isReplaying) return;
+    if (!selected && sessions[0]) {
+      setSelected(sessions[0].session);
+    }
+  }, [selected, sessions]);
+
+  useEffect(() => {
+    if (!isReplaying) return undefined;
     if (replayIndex >= sessionCommands.length) {
       setIsReplaying(false);
-      return;
+      return undefined;
     }
-    replayTimer.current = setTimeout(() => {
-      setReplayIndex(i => i + 1);
-    }, 600 + Math.random() * 400);
+    replayTimer.current = setTimeout(() => setReplayIndex((value) => value + 1), 520);
     return () => clearTimeout(replayTimer.current);
-  }, [isReplaying, replayIndex]);
+  }, [isReplaying, replayIndex, sessionCommands.length]);
 
   useEffect(() => {
-    if (termRef.current) {
-      termRef.current.scrollTop = termRef.current.scrollHeight;
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  }, [replayIndex, selected]);
+  }, [displayedCommands.length]);
 
-  const displayedCommands = isReplaying
-    ? sessionCommands.slice(0, replayIndex)
-    : sessionCommands;
+  const startReplay = () => {
+    setReplayIndex(0);
+    setIsReplaying(true);
+  };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <span style={styles.title}>SESSION VIEWER</span>
-        <span style={styles.sub}>{sessions.length} ACTIVE</span>
+    <section className="dashboard-panel">
+      <div className="panel-header">
+        <div>
+          <span className="section-chip">Session review</span>
+          <h3 className="panel-title">Attacker sessions and command playback</h3>
+          <p className="panel-copy">Inspect active sessions, their source context, and command history without altering the underlying data flow.</p>
+        </div>
+        <div className="chart-meta">
+          <span>{sessions.length} active sessions</span>
+          <span>{sessionCommands.length} commands in selected session</span>
+        </div>
       </div>
-
-      <div style={styles.body}>
-        {/* Session list */}
-        <div style={styles.sessionList}>
-          {sessions.length === 0 && (
-            <div style={styles.empty}>no active sessions</div>
-          )}
-          {sessions.map(s => (
-            <motion.div
-              key={s.session}
-              style={{
-                ...styles.sessionRow,
-                ...(selected === s.session ? styles.sessionRowActive : {}),
-              }}
+      <div className="panel-body session-layout">
+        <div className="session-list">
+          {sessions.map((session) => (
+            <article
+              key={session.session}
+              className={`session-item ${session.session === sessionId ? 'active' : ''}`}
               onClick={() => {
-                setSelected(s.session);
+                setSelected(session.session);
                 setReplayIndex(0);
                 setIsReplaying(false);
               }}
-              whileHover={{ background: '#0f172a' }}
             >
-              <div style={styles.sessionTop}>
-                <span style={styles.sessionFlag}>{flagEmoji(s.countryCode)}</span>
-                <span style={styles.sessionIp}>{s.ip}</span>
-                <span style={styles.sessionCmds}>{s.commandCount} cmds</span>
+              <div className="session-item-top">
+                <strong>{session.ip}</strong>
+                <span className="tiny-code">{flagEmoji(session.countryCode)}</span>
               </div>
-              <div style={styles.sessionBot}>
-                <span style={styles.sessionCountry}>{s.country}</span>
-                <span style={styles.sessionTime}>{formatRelative(s.startTime)}</span>
-              </div>
-              {s.commandCount > 0 && (
-                <div style={styles.lastCmd}>
-                  &gt; {(s.lastCommands?.[s.lastCommands.length - 1] || '').substring(0, 40)}
+              <div className="session-item-bottom">
+                <div>
+                  <div className="feed-meta">{session.country || 'Unknown country'}</div>
+                  <div className="feed-meta">Started {formatRelative(session.startTime)}</div>
                 </div>
-              )}
-            </motion.div>
+                <div className="chart-meta">
+                  <span>{session.commandCount} cmds</span>
+                </div>
+              </div>
+            </article>
           ))}
+          {!sessions.length && (
+            <div className="empty-state">
+              <div>
+                <strong>No active sessions right now.</strong>
+                Session detail will appear once the honeypot records a live connection.
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Terminal panel */}
-        <div style={styles.terminal}>
-          {!selected ? (
-            <div style={styles.termPlaceholder}>
-              <div style={{ color: '#1aff1a', marginBottom: 8 }}>SELECT A SESSION →</div>
-              <div style={{ color: '#334155', fontSize: 10 }}>click a session to view command history</div>
+        <section className="dashboard-panel session-terminal soft">
+          {!selectedSession ? (
+            <div className="empty-state">
+              <div>
+                <strong>Select a session to inspect its activity.</strong>
+                We will render the real command history for the chosen connection here.
+              </div>
             </div>
           ) : (
             <>
-              <div style={styles.termHeader}>
-                <span style={styles.termTitle}>
-                  {selectedSession?.ip} — {selectedSession?.country}
-                </span>
-                <div style={styles.termControls}>
-                  <button
-                    style={styles.replayBtn}
-                    onClick={startReplay}
-                    disabled={isReplaying || sessionCommands.length === 0}
-                  >
-                    {isReplaying ? '⟳ REPLAYING...' : '▶ REPLAY'}
+              <div className="terminal-header">
+                <div>
+                  <strong>{selectedSession.ip}</strong>
+                  <div className="feed-meta">{selectedSession.country || 'Unknown country'} � {selectedSession.session}</div>
+                </div>
+                <div className="session-toolbar">
+                  <button className="surface-button" onClick={startReplay} disabled={!sessionCommands.length || isReplaying}>
+                    {isReplaying ? 'Replaying...' : 'Replay commands'}
                   </button>
-                  {isReplaying && (
-                    <span style={{ color: '#64748b', fontSize: 9 }}>
-                      {replayIndex}/{sessionCommands.length}
-                    </span>
-                  )}
+                  <span className="muted-text">{displayedCommands.length} shown</span>
                 </div>
               </div>
-              <div ref={termRef} style={styles.termBody}>
-                <div style={styles.termLine}>
-                  <span style={{ color: '#1aff1a' }}>cowrie@honeypot</span>
-                  <span style={{ color: '#475569' }}>:</span>
-                  <span style={{ color: '#38bdf8' }}>~$</span>
-                  <span style={{ color: '#64748b' }}> ssh {selectedSession?.ip}</span>
-                </div>
-                <div style={{ color: '#334155', marginBottom: 8 }}>
-                  Connected. Session: {selected}
-                </div>
-
-                <AnimatePresence>
-                  {displayedCommands.map((e, i) => (
+              <div className="terminal-body" ref={terminalRef}>
+                {displayedCommands.map((command, index) => {
+                  const appearance = getSeverityAppearance(command.severityLabel);
+                  return (
                     <motion.div
-                      key={i}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      style={styles.cmdBlock}
+                      key={`${command.timestamp}-${index}`}
+                      className="command-line"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
                     >
-                      <div style={styles.termLine}>
-                        <span style={{ color: '#ff4444' }}>root</span>
-                        <span style={{ color: '#475569' }}>@victim:</span>
-                        <span style={{ color: '#38bdf8' }}># </span>
-                        <span style={{
-                          color: e.suspicious ? '#ff6b35' : '#e2e8f0',
-                          fontWeight: e.suspicious ? 700 : 400,
-                        }}>
-                          {e.command}
-                        </span>
-                        {e.suspicious && <span style={{ color: '#ff6b35', marginLeft: 8 }}>⚠ ALERT</span>}
-                      </div>
-                      <div style={styles.cmdOutput}>
-                        {getFakeOutput(e.command)}
-                      </div>
+                      <strong style={{ color: appearance.color }}>{command.command}</strong>
+                      <span className="feed-meta">{getEventDetail(command)}</span>
+                      <span className="muted-text">{formatRelative(command.timestamp)}</span>
                     </motion.div>
-                  ))}
-                </AnimatePresence>
-
-                {isReplaying && (
-                  <motion.div
-                    animate={{ opacity: [1, 0] }}
-                    transition={{ repeat: Infinity, duration: 0.8 }}
-                    style={{ color: '#1aff1a' }}
-                  >▌</motion.div>
-                )}
-
-                {!isReplaying && sessionCommands.length === 0 && (
-                  <div style={{ color: '#334155' }}>no commands recorded for this session</div>
+                  );
+                })}
+                {!displayedCommands.length && (
+                  <div className="empty-state">
+                    <div>
+                      <strong>No commands captured for this session yet.</strong>
+                      The panel stays wired to the real session history and will populate automatically.
+                    </div>
+                  </div>
                 )}
               </div>
             </>
           )}
-        </div>
+        </section>
       </div>
-    </div>
+    </section>
   );
 }
-
-function getFakeOutput(cmd = '') {
-  const c = cmd.toLowerCase().trim();
-  if (c.startsWith('uname')) return <span style={{ color: '#64748b' }}>Linux honeypot 5.15.0 #1 SMP x86_64 GNU/Linux</span>;
-  if (c === 'id' || c === 'whoami') return <span style={{ color: '#64748b' }}>uid=0(root) gid=0(root) groups=0(root)</span>;
-  if (c.includes('passwd') && c.includes('cat')) return <span style={{ color: '#64748b' }}>root:x:0:0:root:/root:/bin/bash<br/>daemon:x:1:1...</span>;
-  if (c.includes('wget') || c.includes('curl')) return <span style={{ color: '#ffc107' }}>Connecting to remote host... [████████░░] 80%</span>;
-  if (c.includes('chmod')) return null;
-  if (c.includes('ps')) return <span style={{ color: '#64748b' }}>USER PID %CPU %MEM CMD<br/>root 1 0.0 0.1 /sbin/init</span>;
-  return null;
-}
-
-const styles = {
-  container: {
-    background: '#0a0a0f', border: '1px solid #1e293b', borderRadius: 8,
-    display: 'flex', flexDirection: 'column', height: '100%',
-    fontFamily: '"JetBrains Mono", monospace', overflow: 'hidden',
-  },
-  header: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '10px 14px', background: '#0d1117', borderBottom: '1px solid #1e293b',
-  },
-  title: { color: '#a78bfa', fontSize: 11, fontWeight: 700, letterSpacing: 2 },
-  sub: { color: '#334155', fontSize: 9 },
-  body: { display: 'flex', flex: 1, overflow: 'hidden' },
-  sessionList: {
-    width: 220, borderRight: '1px solid #1e293b',
-    overflowY: 'auto', flexShrink: 0,
-  },
-  sessionRow: {
-    padding: '10px 12px', cursor: 'pointer',
-    borderBottom: '1px solid #0f172a',
-    transition: 'background 0.15s',
-  },
-  sessionRowActive: { background: '#0f172a', borderLeft: '2px solid #a78bfa' },
-  sessionTop: { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 },
-  sessionFlag: { fontSize: 12 },
-  sessionIp: { flex: 1, color: '#38bdf8', fontSize: 10, fontWeight: 600 },
-  sessionCmds: { color: '#334155', fontSize: 9 },
-  sessionBot: { display: 'flex', justifyContent: 'space-between' },
-  sessionCountry: { color: '#475569', fontSize: 9 },
-  sessionTime: { color: '#334155', fontSize: 9 },
-  lastCmd: { color: '#1aff1a', fontSize: 9, marginTop: 3, opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  empty: { color: '#1e293b', fontSize: 10, padding: '20px 12px', textAlign: 'center' },
-  terminal: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-  termPlaceholder: {
-    flex: 1, display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center',
-    fontSize: 11, fontFamily: '"JetBrains Mono", monospace',
-  },
-  termHeader: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '8px 12px', background: '#0d1117', borderBottom: '1px solid #1e293b',
-  },
-  termTitle: { color: '#64748b', fontSize: 10 },
-  termControls: { display: 'flex', alignItems: 'center', gap: 8 },
-  replayBtn: {
-    background: 'transparent', border: '1px solid #a78bfa44',
-    color: '#a78bfa', fontSize: 9, padding: '3px 8px', borderRadius: 3,
-    cursor: 'pointer', letterSpacing: 1,
-  },
-  termBody: {
-    flex: 1, overflowY: 'auto', padding: '12px 14px',
-    fontSize: 11, lineHeight: 1.7, color: '#e2e8f0',
-    background: '#050508',
-  },
-  termLine: { display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 2 },
-  cmdBlock: { marginBottom: 8 },
-  cmdOutput: { color: '#475569', marginLeft: 16, fontSize: 10, lineHeight: 1.5 },
-};

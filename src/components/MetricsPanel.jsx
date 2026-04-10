@@ -1,205 +1,148 @@
-// components/MetricsPanel.jsx
 import React from 'react';
-import { motion } from 'framer-motion';
-import { flagEmoji } from '../utils/helpers';
+import { flagEmoji, getSeverityAppearance } from '../utils/ui';
 
-function StatCard({ label, value, color = '#38bdf8', sub, icon }) {
+function StatCard({ label, value, detail, tone }) {
+  const tones = {
+    ocean: 'rgba(125, 178, 207, 0.18)',
+    sea: 'rgba(132, 194, 187, 0.18)',
+    coral: 'rgba(207, 127, 109, 0.18)',
+    amber: 'rgba(216, 176, 106, 0.18)',
+  };
+
   return (
-    <motion.div
-      style={{ ...styles.card, borderColor: color + '22' }}
-      whileHover={{ borderColor: color + '55', background: '#0f172a' }}
-      transition={{ duration: 0.15 }}
-    >
-      <div style={styles.cardIcon}>{icon}</div>
-      <div style={{ ...styles.cardValue, color }}>{value ?? '—'}</div>
-      <div style={styles.cardLabel}>{label}</div>
-      {sub && <div style={styles.cardSub}>{sub}</div>}
-    </motion.div>
+    <article className="metric-card" style={{ '--metric-accent': tones[tone] || tones.ocean }}>
+      <p className="metric-label">{label}</p>
+      <h3 className="metric-value">{value ?? 0}</h3>
+      <p className="metric-detail">{detail}</p>
+    </article>
   );
 }
 
-function TopList({ title, items = [], color = '#38bdf8', renderItem }) {
+function SummaryCard({ title, value, rows }) {
   return (
-    <div style={styles.topList}>
-      <div style={styles.topListTitle}>{title}</div>
-      <div style={styles.topListRows}>
-        {items.slice(0, 8).map((item, i) => (
-          <div key={i} style={styles.topRow}>
-            <span style={styles.rank}>#{i + 1}</span>
-            <div style={styles.barWrapper}>
-              <div
-                style={{
-                  ...styles.bar,
-                  width: `${Math.round((item.count / (items[0]?.count || 1)) * 100)}%`,
-                  background: color,
-                  opacity: 0.15 + (0.85 * (items.length - i) / items.length),
-                }}
-              />
-              <span style={styles.barLabel}>
-                {renderItem ? renderItem(item) : item.name}
-              </span>
-            </div>
-            <span style={{ ...styles.barCount, color }}>{item.count}</span>
-          </div>
+    <section className="summary-card">
+      <h4>{title}</h4>
+      <p>{value}</p>
+      <ul>
+        {rows.map((row) => (
+          <li key={row.label} className="summary-row">
+            <span>{row.label}</span>
+            <strong>{row.value}</strong>
+          </li>
         ))}
-        {items.length === 0 && <div style={styles.empty}>no data yet...</div>}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 }
 
-export default function MetricsPanel({ stats, events }) {
-  const loginRate = stats
-    ? Math.round((stats.loginSuccesses / Math.max(stats.loginSuccesses + stats.loginFailures, 1)) * 100)
-    : 0;
+function SeverityRail({ counts = {}, total = 0 }) {
+  return (
+    <section className="summary-card">
+      <h4>Severity mix</h4>
+      <p>{total.toLocaleString()} events</p>
+      <div className="severity-rail">
+        {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'].map((label) => {
+          const count = counts[label] || 0;
+          const appearance = getSeverityAppearance(label);
+          const width = total ? `${(count / total) * 100}%` : '0%';
+          return (
+            <div key={label} className="severity-row">
+              <span className="severity-label" style={{ color: appearance.color }}>
+                {label}
+              </span>
+              <div className="severity-track">
+                <div className="severity-fill" style={{ width, background: appearance.color }} />
+              </div>
+              <strong>{count}</strong>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
-  const eventsPerMin = stats
-    ? Math.round(stats.totalEvents / Math.max(stats.uptimeSeconds / 60, 1))
-    : 0;
+function TopList({ title, items = [], accent = 'rgba(125, 178, 207, 0.24)', renderItem }) {
+  return (
+    <section className="top-list">
+      <h4>{title}</h4>
+      <div className="top-list-items">
+        {items.slice(0, 6).map((item, index) => {
+          const width = `${Math.round((item.count / (items[0]?.count || 1)) * 100)}%`;
+          return (
+            <div key={`${title}-${item.name}-${index}`} className="top-list-row">
+              <span className="top-list-rank">{index + 1}</span>
+              <div className="top-list-bar">
+                <div className="top-list-bar-fill" style={{ width, background: accent }} />
+                <span className="top-list-label">{renderItem ? renderItem(item) : item.name}</span>
+              </div>
+              <span className="top-list-count">{item.count}</span>
+            </div>
+          );
+        })}
+        {!items.length && <div className="muted-text">Waiting for enough live data to rank this list.</div>}
+      </div>
+    </section>
+  );
+}
+
+export default function MetricsPanel({ stats, cards = [] }) {
+  const totalEvents = stats?.totalEvents || 0;
+  const loginAttempts = (stats?.loginSuccesses || 0) + (stats?.loginFailures || 0);
+  const authRate = loginAttempts ? Math.round(((stats?.loginSuccesses || 0) / loginAttempts) * 100) : 0;
+  const eventsPerMinute = stats ? Math.round(stats.totalEvents / Math.max(stats.uptimeSeconds / 60, 1)) : 0;
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <span style={styles.title}>METRICS</span>
-        <span style={styles.sub}>LIVE AGGREGATION</span>
+    <section className="dashboard-panel">
+      <div className="panel-header">
+        <div>
+          <span className="section-chip">Operations summary</span>
+          <h3 className="panel-title">Analyst metrics and threat posture</h3>
+          <p className="panel-copy">
+            Core KPIs, severity distribution, and top attacker behavior sourced directly from the existing live stream.
+          </p>
+        </div>
       </div>
+      <div className="panel-body metrics-stack">
+        <div className="metric-grid">
+          {cards.map((card) => (
+            <StatCard key={card.label} {...card} />
+          ))}
+        </div>
 
-      {/* KPI Cards */}
-      <div style={styles.kpiGrid}>
-        <StatCard icon="⚡" label="TOTAL ATTACKS" value={stats?.totalAttacks?.toLocaleString() ?? 0} color="#ff2020" />
-        <StatCard icon="🌐" label="UNIQUE IPs" value={stats?.uniqueIPs?.toLocaleString() ?? 0} color="#38bdf8" />
-        <StatCard icon="💀" label="SESSIONS" value={stats?.activeSessions?.length?.toLocaleString() ?? 0} color="#a78bfa" sub="active" />
-        <StatCard icon="🔓" label="BREACHED" value={stats?.loginSuccesses ?? 0} color="#ff6b35" sub={`${loginRate}% rate`} />
-        <StatCard icon="⚠" label="SUSPICIOUS" value={stats?.suspiciousCommands ?? 0} color="#ffc107" />
-        <StatCard icon="📡" label="EVENTS/MIN" value={eventsPerMin} color="#1aff1a" />
-      </div>
+        <div className="metrics-layout">
+          <div className="metrics-stack">
+            <div className="metrics-summary-grid">
+              <SummaryCard
+                title="Authentication posture"
+                value={`${authRate}%`}
+                rows={[
+                  { label: 'Successful logins', value: stats?.loginSuccesses || 0 },
+                  { label: 'Failed logins', value: stats?.loginFailures || 0 },
+                  { label: 'Events per minute', value: eventsPerMinute },
+                ]}
+              />
+              <SummaryCard
+                title="Source footprint"
+                value={stats?.uniqueIPs?.toLocaleString() || '0'}
+                rows={[
+                  { label: 'Observed countries', value: stats?.topCountries?.length || 0 },
+                  { label: 'Active sessions', value: stats?.activeSessions?.length || 0 },
+                  { label: 'Suspicious commands', value: stats?.suspiciousCommands || 0 },
+                ]}
+              />
+            </div>
+            <TopList title="Top usernames" items={stats?.topUsernames || []} accent="rgba(125, 178, 207, 0.24)" />
+            <TopList title="Top countries" items={stats?.topCountries || []} accent="rgba(132, 194, 187, 0.24)" renderItem={(item) => `${flagEmoji(item.cc)} ${item.name}`} />
+          </div>
 
-      {/* Severity breakdown */}
-      {stats?.severityCounts && (
-        <div style={styles.severity}>
-          <div style={styles.sectionTitle}>SEVERITY DISTRIBUTION</div>
-          <div style={styles.sevBars}>
-            {[
-              ['CRITICAL', '#ff2020'],
-              ['HIGH', '#ff6b35'],
-              ['MEDIUM', '#ffc107'],
-              ['LOW', '#4caf50'],
-              ['INFO', '#64748b'],
-            ].map(([label, color]) => {
-              const count = stats.severityCounts[label] || 0;
-              const total = stats.totalEvents || 1;
-              return (
-                <div key={label} style={styles.sevRow}>
-                  <span style={{ ...styles.sevLabel, color }}>{label}</span>
-                  <div style={styles.sevBarTrack}>
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(count / total) * 100}%` }}
-                      transition={{ duration: 0.6 }}
-                      style={{ height: '100%', background: color, borderRadius: 2 }}
-                    />
-                  </div>
-                  <span style={styles.sevCount}>{count}</span>
-                </div>
-              );
-            })}
+          <div className="metrics-stack">
+            <SeverityRail counts={stats?.severityCounts || {}} total={totalEvents} />
+            <TopList title="Top passwords" items={stats?.topPasswords || []} accent="rgba(215, 194, 166, 0.34)" />
+            <TopList title="Top commands" items={stats?.topCommands || []} accent="rgba(207, 127, 109, 0.24)" renderItem={(item) => item.name} />
           </div>
         </div>
-      )}
-
-      {/* Top Lists */}
-      <div style={styles.topGrid}>
-        <TopList
-          title="TOP USERNAMES"
-          items={stats?.topUsernames || []}
-          color="#38bdf8"
-        />
-        <TopList
-          title="TOP PASSWORDS"
-          items={stats?.topPasswords || []}
-          color="#a78bfa"
-        />
-        <TopList
-          title="TOP COMMANDS"
-          items={stats?.topCommands || []}
-          color="#ff6b35"
-          renderItem={item => item.name.substring(0, 28)}
-        />
-        <TopList
-          title="TOP COUNTRIES"
-          items={stats?.topCountries || []}
-          color="#1aff1a"
-          renderItem={item => `${flagEmoji(item.cc)} ${item.name}`}
-        />
       </div>
-    </div>
+    </section>
   );
 }
-
-const styles = {
-  container: {
-    background: '#0a0a0f',
-    border: '1px solid #1e293b',
-    borderRadius: 8,
-    overflow: 'hidden',
-    fontFamily: '"JetBrains Mono", monospace',
-  },
-  header: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '10px 14px', background: '#0d1117',
-    borderBottom: '1px solid #1e293b',
-  },
-  title: { color: '#e2e8f0', fontSize: 11, fontWeight: 700, letterSpacing: 2 },
-  sub: { color: '#334155', fontSize: 9, letterSpacing: 1 },
-  kpiGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: 1, background: '#1e293b',
-    borderBottom: '1px solid #1e293b',
-  },
-  card: {
-    background: '#0a0a0f',
-    padding: '12px 14px',
-    border: '1px solid transparent',
-    cursor: 'default',
-    transition: 'all 0.15s',
-  },
-  cardIcon: { fontSize: 16, marginBottom: 4 },
-  cardValue: { fontSize: 22, fontWeight: 700, lineHeight: 1 },
-  cardLabel: { color: '#475569', fontSize: 9, letterSpacing: 1.5, marginTop: 3 },
-  cardSub: { color: '#334155', fontSize: 9, marginTop: 2 },
-  severity: { padding: '12px 14px', borderBottom: '1px solid #1e293b' },
-  sectionTitle: { color: '#334155', fontSize: 9, letterSpacing: 2, marginBottom: 8 },
-  sevBars: { display: 'flex', flexDirection: 'column', gap: 5 },
-  sevRow: { display: 'flex', alignItems: 'center', gap: 8 },
-  sevLabel: { fontSize: 9, width: 54, letterSpacing: 0.5 },
-  sevBarTrack: {
-    flex: 1, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden',
-  },
-  sevCount: { color: '#475569', fontSize: 9, width: 30, textAlign: 'right' },
-  topGrid: {
-    display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: 0,
-  },
-  topList: {
-    padding: '12px 14px',
-    borderRight: '1px solid #0f172a',
-    borderBottom: '1px solid #0f172a',
-  },
-  topListTitle: { color: '#334155', fontSize: 9, letterSpacing: 2, marginBottom: 8 },
-  topListRows: { display: 'flex', flexDirection: 'column', gap: 4 },
-  topRow: { display: 'flex', alignItems: 'center', gap: 6 },
-  rank: { color: '#1e293b', fontSize: 9, width: 16 },
-  barWrapper: {
-    flex: 1, height: 16, background: '#0d1117', borderRadius: 2,
-    position: 'relative', overflow: 'hidden',
-  },
-  bar: { position: 'absolute', top: 0, left: 0, height: '100%', borderRadius: 2 },
-  barLabel: {
-    position: 'absolute', top: '50%', left: 4,
-    transform: 'translateY(-50%)',
-    fontSize: 9, color: '#94a3b8', whiteSpace: 'nowrap',
-    overflow: 'hidden', maxWidth: '90%', textOverflow: 'ellipsis',
-  },
-  barCount: { fontSize: 9, width: 28, textAlign: 'right' },
-  empty: { color: '#1e293b', fontSize: 10, padding: '4px 0' },
-};
