@@ -147,13 +147,14 @@ const styles = {
     fontSize: 11,
     color: '#64748b',
   },
-  twoColumn: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 12,
-    padding: 16,
-    overflow: 'auto',
-  },
+ twoColumn: {
+  display: 'grid',
+  gridTemplateColumns: '1.3fr 1fr', // ✅ more space to Metrics
+  gap: 16,
+  padding: 16,
+  overflow: 'auto',
+  alignItems: 'start', // ✅ prevents stretch/overlap
+},
   analyticsView: {
     padding: 16,
     overflow: 'auto',

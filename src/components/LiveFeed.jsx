@@ -5,6 +5,14 @@ import { formatTimestamp, getSeverityColor, getEventIcon, getEventLabel, truncat
 
 const FILTER_OPTIONS = ['all', 'login_failed', 'login_success', 'command', 'session_connect'];
 
+const SEV_STYLE = {
+  CRITICAL: { bg: '#fff0f0', color: '#e8393a' },
+  HIGH:     { bg: '#fff4ed', color: '#f76707' },
+  MEDIUM:   { bg: '#fffbeb', color: '#e08900' },
+  LOW:      { bg: '#ebfbee', color: '#2f9e44' },
+  INFO:     { bg: '#e0f2fe', color: '#0284c7' },
+};
+
 export default function LiveFeed({ events }) {
   const [filter, setFilter] = useState('all');
   const [paused, setPaused] = useState(false);
@@ -13,9 +21,7 @@ export default function LiveFeed({ events }) {
   const [displayEvents, setDisplayEvents] = useState([]);
 
   useEffect(() => {
-    if (!paused) {
-      setDisplayEvents(events);
-    }
+    if (!paused) setDisplayEvents(events);
   }, [events, paused]);
 
   const filtered = displayEvents.filter(e => {
@@ -33,55 +39,55 @@ export default function LiveFeed({ events }) {
   });
 
   return (
-    <div style={styles.container}>
+    <div style={s.container}>
       {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
-          <span style={styles.dot} />
-          <span style={styles.title}>LIVE ATTACK FEED</span>
-          <span style={styles.count}>{filtered.length}</span>
+      <div style={s.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={s.liveDot} />
+          <span style={s.title}>Live Attack Feed</span>
+          <span style={s.countBadge}>{filtered.length}</span>
         </div>
-        <div style={styles.controls}>
+        <div style={{ display: 'flex', gap: 8 }}>
           <button
-            style={{ ...styles.pauseBtn, ...(paused ? styles.pausedActive : {}) }}
+            style={{ ...s.btn, ...(paused ? s.btnWarning : {}) }}
             onClick={() => setPaused(p => !p)}
           >
-            {paused ? '▶ RESUME' : '⏸ PAUSE'}
+            {paused ? '▶ Resume' : '⏸ Pause'}
           </button>
         </div>
       </div>
 
       {/* Filters + Search */}
-      <div style={styles.filterRow}>
-        <div style={styles.filters}>
+      <div style={s.filterRow}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {FILTER_OPTIONS.map(f => (
             <button
               key={f}
-              style={{ ...styles.filterBtn, ...(filter === f ? styles.filterActive : {}) }}
+              style={{ ...s.filterBtn, ...(filter === f ? s.filterActive : {}) }}
               onClick={() => setFilter(f)}
             >
-              {f === 'all' ? 'ALL' : getEventLabel(f)}
+              {f === 'all' ? 'All' : getEventLabel(f)}
             </button>
           ))}
         </div>
         <input
-          style={styles.search}
-          placeholder="search ip / user / command..."
+          style={s.search}
+          placeholder="Search IP, user, command…"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Terminal Feed */}
-      <div ref={feedRef} style={styles.feed}>
+      {/* Feed */}
+      <div ref={feedRef} style={s.feed}>
         <AnimatePresence initial={false}>
           {filtered.slice(0, 150).map((event, i) => (
             <FeedRow key={event.id || i} event={event} isNew={i === 0 && !paused} />
           ))}
         </AnimatePresence>
         {filtered.length === 0 && (
-          <div style={styles.empty}>
-            <span style={{ color: '#1aff1a', opacity: 0.3 }}>_ awaiting events...</span>
+          <div style={s.empty}>
+            <span style={{ color: 'var(--text-muted)' }}>Awaiting events…</span>
           </div>
         )}
       </div>
@@ -90,7 +96,7 @@ export default function LiveFeed({ events }) {
 }
 
 function FeedRow({ event, isNew }) {
-  const color = getSeverityColor(event.severityLabel);
+  const sevStyle = SEV_STYLE[event.severityLabel] || SEV_STYLE.INFO;
   const icon = getEventIcon(event.type);
   const label = getEventLabel(event.type);
   const flag = flagEmoji(event.geo?.countryCode);
@@ -114,100 +120,95 @@ function FeedRow({ event, isNew }) {
   return (
     <motion.div
       layout
-      initial={isNew ? { opacity: 0, x: -10, backgroundColor: 'rgba(26,255,26,0.08)' } : { opacity: 1 }}
+      initial={isNew ? { opacity: 0, x: -8, backgroundColor: 'rgba(67,97,238,0.05)' } : { opacity: 1 }}
       animate={{ opacity: 1, x: 0, backgroundColor: 'transparent' }}
       exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.3 }}
-      style={styles.row}
+      transition={{ duration: 0.25 }}
+      style={s.row}
     >
-      <span style={styles.ts}>{formatTimestamp(event.timestamp)}</span>
-      <span style={{ ...styles.badge, backgroundColor: color + '22', color, borderColor: color + '44' }}>
+      <span style={s.ts}>{formatTimestamp(event.timestamp)}</span>
+      <span style={{ ...s.badge, background: sevStyle.bg, color: sevStyle.color }}>
         {label}
       </span>
-      <span style={styles.ip}>{event.ip}</span>
-      <span style={styles.flag}>{flag}</span>
-      <span style={{ ...styles.detail, color: event.suspicious ? '#ff6b35' : '#94a3b8' }}>
-        {event.suspicious && <span style={{ color: '#ff6b35', marginRight: 4 }}>⚠</span>}
+      <span style={s.ip}>{event.ip}</span>
+      <span style={s.flag}>{flag}</span>
+      <span style={{ ...s.detail, color: event.suspicious ? '#f76707' : 'var(--text-secondary)' }}>
+        {event.suspicious && <span style={{ color: '#f76707', marginRight: 4 }}>⚠</span>}
         {icon} {detail}
       </span>
-      <span style={{ ...styles.severity, color }}>
+      <span style={{ ...s.sev, color: sevStyle.color, background: sevStyle.bg }}>
         {event.severity}
       </span>
     </motion.div>
   );
 }
 
-const styles = {
+const s = {
   container: {
-    background: '#0a0a0f',
-    border: '1px solid #1e293b',
-    borderRadius: 8,
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-    overflow: 'hidden',
+    background: 'var(--surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column',
+    height: '100%', overflow: 'hidden', boxShadow: 'var(--shadow-sm)',
+    fontFamily: 'var(--font)',
   },
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '10px 14px', borderBottom: '1px solid #1e293b',
-    background: '#0d1117',
+    padding: '12px 16px', borderBottom: '1px solid var(--border-soft)',
   },
-  headerLeft: { display: 'flex', alignItems: 'center', gap: 8 },
-  dot: {
+  liveDot: {
     width: 8, height: 8, borderRadius: '50%',
-    background: '#1aff1a',
-    boxShadow: '0 0 6px #1aff1a',
-    animation: 'pulse 2s infinite',
+    background: '#2f9e44', flexShrink: 0,
+    animation: 'pulse-dot 2s infinite',
   },
-  title: { color: '#1aff1a', fontSize: 11, fontWeight: 700, letterSpacing: 2 },
-  count: {
-    background: '#1e293b', color: '#64748b',
-    fontSize: 10, padding: '2px 6px', borderRadius: 3,
+  title: { fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' },
+  countBadge: {
+    background: 'var(--bg)', color: 'var(--text-muted)',
+    fontSize: 11, padding: '1px 7px', borderRadius: 10,
+    border: '1px solid var(--border)',
   },
-  controls: { display: 'flex', gap: 8 },
-  pauseBtn: {
-    background: 'transparent', border: '1px solid #334155',
-    color: '#64748b', fontSize: 10, padding: '4px 8px', borderRadius: 4,
-    cursor: 'pointer', letterSpacing: 1,
+  btn: {
+    background: 'var(--bg)', border: '1px solid var(--border)',
+    color: 'var(--text-secondary)', fontSize: 12, padding: '4px 12px',
+    borderRadius: 'var(--radius-xs)', cursor: 'pointer',
+    fontFamily: 'var(--font)', fontWeight: 500,
   },
-  pausedActive: { borderColor: '#ffc107', color: '#ffc107' },
+  btnWarning: { borderColor: '#e0890044', color: '#e08900', background: '#fffbeb' },
   filterRow: {
     display: 'flex', alignItems: 'center', gap: 8,
-    padding: '8px 14px', borderBottom: '1px solid #1e293b',
-    background: '#0d1117',
+    padding: '8px 16px', borderBottom: '1px solid var(--border-soft)',
+    background: 'var(--surface2)',
   },
-  filters: { display: 'flex', gap: 4 },
   filterBtn: {
-    background: 'transparent', border: '1px solid #1e293b',
-    color: '#475569', fontSize: 9, padding: '3px 7px', borderRadius: 3,
-    cursor: 'pointer', letterSpacing: 1,
+    background: 'transparent', border: '1px solid var(--border)',
+    color: 'var(--text-muted)', fontSize: 11, padding: '3px 9px',
+    borderRadius: 20, cursor: 'pointer', fontFamily: 'var(--font)',
+    fontWeight: 500, whiteSpace: 'nowrap',
   },
-  filterActive: { borderColor: '#1aff1a44', color: '#1aff1a', background: '#1aff1a0a' },
+  filterActive: {
+    borderColor: '#4361ee44', color: '#4361ee',
+    background: 'var(--accent-light)',
+  },
   search: {
-    flex: 1, background: '#0a0a0f', border: '1px solid #1e293b',
-    color: '#94a3b8', fontSize: 10, padding: '4px 8px', borderRadius: 4,
-    outline: 'none', fontFamily: 'inherit',
+    flex: 1, background: 'var(--bg)', border: '1px solid var(--border)',
+    color: 'var(--text-primary)', fontSize: 12, padding: '5px 11px',
+    borderRadius: 'var(--radius-xs)', outline: 'none', fontFamily: 'var(--font)',
   },
   feed: {
     flex: 1, overflowY: 'auto',
-    scrollbarWidth: 'thin', scrollbarColor: '#1e293b transparent',
+    scrollbarWidth: 'thin', scrollbarColor: 'var(--border) transparent',
   },
   row: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '5px 14px', borderBottom: '1px solid #0f172a',
-    fontSize: 11, minHeight: 28,
-    cursor: 'default',
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '7px 16px', borderBottom: '1px solid var(--border-soft)',
+    fontSize: 12, minHeight: 36, cursor: 'default',
   },
-  ts: { color: '#334155', minWidth: 70 },
+  ts: { color: 'var(--text-muted)', minWidth: 76, fontSize: 11, fontFamily: 'var(--font-mono)' },
   badge: {
-    fontSize: 9, padding: '1px 5px', borderRadius: 3,
-    border: '1px solid', minWidth: 62, textAlign: 'center',
-    fontWeight: 700, letterSpacing: 0.5,
+    fontSize: 10, padding: '2px 7px', borderRadius: 20,
+    fontWeight: 700, minWidth: 68, textAlign: 'center', whiteSpace: 'nowrap',
   },
-  ip: { color: '#38bdf8', minWidth: 120, fontWeight: 600 },
-  flag: { fontSize: 12 },
-  detail: { flex: 1, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  severity: { minWidth: 28, textAlign: 'right', fontWeight: 700, fontSize: 10 },
-  empty: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 },
+  ip: { color: '#4361ee', minWidth: 120, fontWeight: 600, fontSize: 12, fontFamily: 'var(--font-mono)' },
+  flag: { fontSize: 14 },
+  detail: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 },
+  sev: { minWidth: 28, textAlign: 'right', fontWeight: 700, fontSize: 11, padding: '1px 6px', borderRadius: 20 },
+  empty: { display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, fontSize: 13 },
 };

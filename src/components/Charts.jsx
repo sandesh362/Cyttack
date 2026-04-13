@@ -1,26 +1,26 @@
 // components/Charts.jsx
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
   Tooltip, ResponsiveContainer, RadialBarChart, RadialBar,
   CartesianGrid, Cell,
 } from 'recharts';
 
-const CHART_BG = '#0a0a0f';
-const GRID_COLOR = '#1e293b';
-const TEXT_COLOR = '#475569';
+const GRID = '#e6e9f4';
+const TICK = '#9ba3be';
 
-function CustomTooltip({ active, payload, label, formatter }) {
+function ChartTooltip({ active, payload, label, formatter }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: '#0d1117', border: '1px solid #334155',
-      borderRadius: 4, padding: '6px 10px',
-      fontFamily: '"JetBrains Mono", monospace', fontSize: 10,
+      background: '#fff', border: '1px solid #e6e9f4',
+      borderRadius: 8, padding: '8px 13px',
+      boxShadow: '0 6px 20px rgba(30,40,90,0.10)',
+      fontFamily: 'var(--font)', fontSize: 12,
     }}>
-      <div style={{ color: '#64748b', marginBottom: 2 }}>{label}</div>
+      {label && <div style={{ color: '#9ba3be', marginBottom: 3, fontSize: 11 }}>{label}</div>}
       {payload.map((p, i) => (
-        <div key={i} style={{ color: p.color || '#38bdf8' }}>
+        <div key={i} style={{ color: p.color || '#4361ee', fontWeight: 700 }}>
           {formatter ? formatter(p.value) : p.value}
         </div>
       ))}
@@ -30,105 +30,109 @@ function CustomTooltip({ active, payload, label, formatter }) {
 
 export function TimelineChart({ data = [] }) {
   const chartData = data.map(d => ({ ...d, time: d.label }));
-
   return (
-    <div style={styles.chartBox}>
-      <div style={styles.chartHeader}>
-        <span style={styles.chartTitle}>ATTACKS OVER TIME</span>
-        <span style={styles.chartSub}>30min window</span>
+    <div style={s.box}>
+      <div style={s.hdr}>
+        <span style={s.title}>Attacks Over Time</span>
+        <span style={s.sub}>30-min window</span>
       </div>
-      <ResponsiveContainer width="100%" height={140}>
-        <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-          <defs>
-            <linearGradient id="attackGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#ff2020" stopOpacity={0.4} />
-              <stop offset="95%" stopColor="#ff2020" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-          <XAxis
-            dataKey="time" tick={{ fill: TEXT_COLOR, fontSize: 9 }}
-            axisLine={false} tickLine={false}
-            interval="preserveStartEnd"
-          />
-          <YAxis tick={{ fill: TEXT_COLOR, fontSize: 9 }} axisLine={false} tickLine={false} />
-          <Tooltip content={<CustomTooltip formatter={v => `${v} events`} />} />
-          <Area
-            type="monotone" dataKey="count"
-            stroke="#ff2020" strokeWidth={2}
-            fill="url(#attackGrad)"
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+      <div style={{ padding: '4px 4px 0' }}>
+        <ResponsiveContainer width="100%" height={150}>
+          <AreaChart data={chartData} margin={{ top: 6, right: 10, left: -18, bottom: 0 }}>
+            <defs>
+              <linearGradient id="aGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#4361ee" stopOpacity={0.18} />
+                <stop offset="95%" stopColor="#4361ee" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+            <XAxis dataKey="time" tick={{ fill: TICK, fontSize: 11, fontFamily: 'var(--font)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+            <YAxis tick={{ fill: TICK, fontSize: 11, fontFamily: 'var(--font)' }} axisLine={false} tickLine={false} />
+            <Tooltip content={<ChartTooltip formatter={v => `${v} events`} />} />
+            <Area type="monotone" dataKey="count" stroke="#4361ee" strokeWidth={2.5} fill="url(#aGrad)" dot={false} activeDot={{ r: 4, fill: '#4361ee' }} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
 
 export function CommandFreqChart({ data = [] }) {
   const chartData = data.slice(0, 8).map(d => ({
-    name: d.name.length > 20 ? d.name.substring(0, 20) + '…' : d.name,
+    name: d.name.length > 22 ? d.name.substring(0, 22) + '…' : d.name,
     count: d.count,
   }));
-
-  const COLORS = ['#ff6b35', '#ff9a5c', '#ffb380', '#ffc9a0', '#ffd9be', '#ffe6d5', '#fff0e8', '#fff8f3'];
-
+  const COLORS = ['#4361ee','#7048e8','#0284c7','#2f9e44','#f76707','#e08900','#c2255c','#9ba3be'];
   return (
-    <div style={styles.chartBox}>
-      <div style={styles.chartHeader}>
-        <span style={styles.chartTitle}>COMMAND FREQUENCY</span>
-        <span style={styles.chartSub}>top 8</span>
+    <div style={s.box}>
+      <div style={s.hdr}>
+        <span style={s.title}>Command Frequency</span>
+        <span style={s.sub}>top 8</span>
       </div>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 8, left: 4, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} horizontal={false} />
-          <XAxis type="number" tick={{ fill: TEXT_COLOR, fontSize: 9 }} axisLine={false} tickLine={false} />
-          <YAxis
-            type="category" dataKey="name"
-            tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: '"JetBrains Mono", monospace' }}
-            axisLine={false} tickLine={false} width={130}
-          />
-          <Tooltip content={<CustomTooltip formatter={v => `${v}×`} />} />
-          <Bar dataKey="count" radius={[0, 3, 3, 0]}>
-            {chartData.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div style={{ padding: '4px 6px 0' }}>
+        <ResponsiveContainer width="100%" height={210}>
+          <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 42, left: 8, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
+            <XAxis type="number" tick={{ fill: TICK, fontSize: 11, fontFamily: 'var(--font)' }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" tick={{ fill: '#56607e', fontSize: 11, fontFamily: 'var(--font)' }} axisLine={false} tickLine={false} width={155} />
+            <Tooltip content={<ChartTooltip formatter={v => `${v} times`} />} />
+            <Bar dataKey="count" radius={[0, 5, 5, 0]} maxBarSize={16}>
+              {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function GeoBar({ item, max, color }) {
+  const [hov, setHov] = useState(false);
+  const pct = Math.round((item.count / (max || 1)) * 100);
+  return (
+    <div
+      style={{ ...s.geoRow, position: 'relative' }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <span style={{ ...s.geoName, color }}>{item.name}</span>
+      <div style={s.geoTrack}>
+        <div style={{
+          height: '100%', width: `${pct}%`, background: color,
+          borderRadius: 3, transition: 'width 0.55s ease',
+          boxShadow: hov ? `0 0 6px ${color}55` : 'none',
+        }} />
+      </div>
+      <span style={s.geoCnt}>{item.count}</span>
+      {hov && (
+        <div style={{
+          position: 'absolute', right: 40, top: '50%', transform: 'translateY(-50%)',
+          background: '#fff', border: '1px solid var(--border)',
+          borderRadius: 7, padding: '5px 12px', zIndex: 10,
+          boxShadow: '0 6px 20px rgba(30,40,90,0.10)',
+          fontSize: 12, color: '#1a1f3a', whiteSpace: 'nowrap',
+          pointerEvents: 'none', fontFamily: 'var(--font)',
+        }}>
+          <strong style={{ color }}>{item.name}</strong> — {item.count} hits ({pct}%)
+        </div>
+      )}
     </div>
   );
 }
 
 export function GeoDistChart({ data = [] }) {
-  const chartData = data.slice(0, 6).map((d, i) => ({
-    name: d.name,
-    count: d.count,
-    fill: ['#38bdf8','#818cf8','#a78bfa','#c084fc','#e879f9','#f472b6'][i],
-  }));
-
+  const colors = ['#4361ee','#7048e8','#0284c7','#2f9e44','#f76707','#c2255c'];
+  const chartData = data.slice(0, 6).map((d, i) => ({ ...d, color: colors[i] }));
+  const max = chartData[0]?.count || 1;
   return (
-    <div style={styles.chartBox}>
-      <div style={styles.chartHeader}>
-        <span style={styles.chartTitle}>GEO DISTRIBUTION</span>
-        <span style={styles.chartSub}>by country</span>
+    <div style={s.box}>
+      <div style={s.hdr}>
+        <span style={s.title}>Geo Distribution</span>
+        <span style={s.sub}>by country</span>
       </div>
-      <div style={styles.geoList}>
-        {chartData.map((d, i) => (
-          <div key={i} style={styles.geoRow}>
-            <div style={styles.geoBarTrack}>
-              <div style={{
-                height: '100%',
-                width: `${Math.round((d.count / (chartData[0]?.count || 1)) * 100)}%`,
-                background: d.fill,
-                borderRadius: 2,
-                transition: 'width 0.6s ease',
-              }} />
-            </div>
-            <span style={{ ...styles.geoName, color: d.fill }}>{d.name}</span>
-            <span style={styles.geoCount}>{d.count}</span>
-          </div>
-        ))}
-        {chartData.length === 0 && <div style={{ color: '#1e293b', fontSize: 10 }}>awaiting geo data...</div>}
+      <div style={{ padding: '12px 16px' }}>
+        {chartData.map((d, i) => <GeoBar key={i} item={d} max={max} color={d.color} />)}
+        {chartData.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>awaiting geo data…</div>}
       </div>
     </div>
   );
@@ -136,64 +140,56 @@ export function GeoDistChart({ data = [] }) {
 
 export function SeverityRadial({ counts = {} }) {
   const data = [
-    { name: 'CRITICAL', value: counts.CRITICAL || 0, fill: '#ff2020' },
-    { name: 'HIGH',     value: counts.HIGH || 0,     fill: '#ff6b35' },
-    { name: 'MEDIUM',   value: counts.MEDIUM || 0,   fill: '#ffc107' },
-    { name: 'LOW',      value: counts.LOW || 0,       fill: '#4caf50' },
+    { name: 'CRITICAL', value: counts.CRITICAL || 0, fill: '#e8393a' },
+    { name: 'HIGH',     value: counts.HIGH || 0,     fill: '#f76707' },
+    { name: 'MEDIUM',   value: counts.MEDIUM || 0,   fill: '#e08900' },
+    { name: 'LOW',      value: counts.LOW || 0,       fill: '#2f9e44' },
   ].filter(d => d.value > 0);
-
   const total = data.reduce((s, d) => s + d.value, 0);
-
   return (
-    <div style={styles.chartBox}>
-      <div style={styles.chartHeader}>
-        <span style={styles.chartTitle}>THREAT LEVEL</span>
+    <div style={s.box}>
+      <div style={s.hdr}>
+        <span style={s.title}>Threat Level</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px' }}>
         <ResponsiveContainer width={100} height={100}>
-          <RadialBarChart
-            cx="50%" cy="50%"
-            innerRadius={20} outerRadius={45}
-            data={data.length > 0 ? data : [{ name: 'none', value: 1, fill: '#1e293b' }]}
-            startAngle={180} endAngle={-180}
-          >
+          <RadialBarChart cx="50%" cy="50%" innerRadius={20} outerRadius={46}
+            data={data.length > 0 ? data : [{ name: 'none', value: 1, fill: '#e6e9f4' }]}
+            startAngle={180} endAngle={-180}>
             <RadialBar dataKey="value" cornerRadius={3} />
           </RadialBarChart>
         </ResponsiveContainer>
         <div style={{ flex: 1 }}>
           {data.map(d => (
-            <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: d.fill }} />
-              <span style={{ color: '#475569', fontSize: 9, flex: 1, fontFamily: '"JetBrains Mono", monospace' }}>{d.name}</span>
-              <span style={{ color: d.fill, fontSize: 9, fontFamily: '"JetBrains Mono", monospace' }}>
+            <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.fill }} />
+              <span style={{ color: 'var(--text-secondary)', fontSize: 12, flex: 1 }}>{d.name}</span>
+              <span style={{ color: d.fill, fontSize: 13, fontWeight: 700 }}>
                 {total > 0 ? Math.round((d.value / total) * 100) : 0}%
               </span>
             </div>
           ))}
-          {data.length === 0 && <div style={{ color: '#1e293b', fontSize: 10, fontFamily: '"JetBrains Mono", monospace' }}>no data</div>}
+          {data.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>no data</div>}
         </div>
       </div>
     </div>
   );
 }
 
-const styles = {
-  chartBox: {
-    background: '#0a0a0f',
-    border: '1px solid #1e293b',
-    borderRadius: 8,
-    padding: '12px 14px',
-    fontFamily: '"JetBrains Mono", monospace',
+const s = {
+  box: {
+    background: 'var(--surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)',
+    overflow: 'hidden',
   },
-  chartHeader: {
+  hdr: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 10,
+    padding: '13px 16px', borderBottom: '1px solid var(--border-soft)',
   },
-  chartTitle: { color: '#94a3b8', fontSize: 10, fontWeight: 700, letterSpacing: 2 },
-  chartSub: { color: '#334155', fontSize: 9 },
-  geoList: { display: 'flex', flexDirection: 'column', gap: 6 },
-  geoRow: { display: 'flex', alignItems: 'center', gap: 8 },
-  geoBarTrack: { flex: 1, height: 12, background: '#0d1117', borderRadius: 2, overflow: 'hidden' },
-  geoName: { fontSize: 9, width: 80, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  geoCount: { color: '#475569', fontSize: 9, width: 28, textAlign: 'right' },
+  title: { fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '0.06em', textTransform: 'uppercase' },
+  sub: { fontSize: 11, color: 'var(--text-muted)' },
+  geoRow: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 },
+  geoTrack: { flex: 1, height: 13, background: 'var(--bg)', borderRadius: 3, overflow: 'hidden' },
+  geoName: { fontSize: 12, width: 88, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 },
+  geoCnt: { color: 'var(--text-muted)', fontSize: 12, width: 32, textAlign: 'right' },
 };
